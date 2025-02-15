@@ -1,0 +1,29 @@
+@startuml
+actor User
+participant "Spark Stream" as Spark
+database "HsqlDB" as DB
+participant "Spring Boot API" as API
+
+== 事件產生 ==
+Spark -> Spark: getEvents() 產生隨機事件 (eventId, timestamp)
+
+== 數據處理 ==
+Spark -> Spark: 按分鐘分桶
+Spark -> Spark: 計算 eventId 計數
+Spark -> Spark: 處理延遲數據 (Watermarking)
+
+== 寫入資料庫 ==
+Spark -> DB: INSERT INTO event_counters (time_bucket, event_id, count)
+
+== 使用者查詢 API ==
+User -> API: GET /api/counters/time/{time_bucket}
+API -> DB: SELECT * FROM event_counters WHERE time_bucket = ?
+DB -> API: 回傳 JSON 結果
+API -> User: 返回計數數據
+
+User -> API: GET /api/counters/time/{time_bucket}/eventId/{event_id}
+API -> DB: SELECT count FROM event_counters WHERE time_bucket = ? AND event_id = ?
+DB -> API: 回傳計數
+API -> User: 返回單個 eventId 計數
+
+@enduml
