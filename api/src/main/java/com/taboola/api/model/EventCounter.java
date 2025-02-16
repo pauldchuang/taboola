@@ -16,7 +16,6 @@ public class EventCounter {
 
     private int count;
 
-    // Getters and Setters
     public String getTimeBucket() {
         return timeBucket;
     }

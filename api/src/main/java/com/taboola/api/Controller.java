@@ -1,9 +1,7 @@
 package com.taboola.api;
 
 import java.time.Instant;
-import java.util.Optional;
-
-import com.taboola.api.model.EventCounter;
+import java.util.Map;
 import com.taboola.api.service.EventCounterService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,24 +16,24 @@ public class Controller {
     private String dbUrl;
 
 
-    private final EventCounterService service;
+    private final EventCounterService eventCounterService;
 
     public Controller(EventCounterService service) {
-        this.service = service;
-    }
-
-    @GetMapping("/{timeBucket}/{eventId}")
-    public Optional<EventCounter> getEventCounter(@PathVariable String timeBucket, @PathVariable int eventId) {
-        return service.getEventCounter(timeBucket, eventId);
-    }
-
-    @GetMapping("/test")
-    public String test() {
-        return "Connected to: " + dbUrl;
+        this.eventCounterService = service;
     }
 
     @GetMapping("/currentTime")
     public long time() {
         return Instant.now().toEpochMilli();
+    }
+
+    @GetMapping("/counters/time/{timeBucket}")
+    public Map<Integer, Integer> getCountersByTimeBucket(@PathVariable String timeBucket) {
+        return eventCounterService.getCountersByTimeBucket(timeBucket);
+    }
+
+    @GetMapping("/counters/time/{timeBucket}/eventId/{eventId}")
+    public long getCounterByTimeBucketAndEventId(@PathVariable String timeBucket, @PathVariable int eventId) {
+        return eventCounterService.getCounterByTimeBucketAndEventId(timeBucket, eventId);
     }
 }

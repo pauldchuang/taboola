@@ -15,7 +15,6 @@ public class EventCounterId implements Serializable {
         this.eventId = eventId;
     }
 
-    // Getters and Setters
     public String getTimeBucket() {
         return timeBucket;
     }

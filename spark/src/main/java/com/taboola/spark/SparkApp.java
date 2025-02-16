@@ -34,15 +34,14 @@ public class SparkApp {
                 .format("console")
                 .trigger(Trigger.ProcessingTime(10, TimeUnit.SECONDS))
                 .start();
-
-        // Add watermark and aggregation
+        
         Dataset<Row> aggregatedEvents = events
-                .withWatermark("timestamp", "1 minute") // Add watermark to handle late data
+                .withWatermark("timestamp", "1 minute")
                 .groupBy(
-                        functions.window(functions.col("timestamp"), "1 minute"), // Group by 1-minute window
+                        functions.window(functions.col("timestamp"), "1 minute"),
                         functions.col("eventId")
                 )
-                .agg(functions.count("*").alias("count")) // Count the events for each (time bucket, eventId)
+                .agg(functions.count("*").alias("count"))
                 .select(
                         functions.date_format(functions.col("window.start"), "yyyyMMddHHmm").alias("time_bucket"),
                         functions.col("eventId").alias("event_id"),
