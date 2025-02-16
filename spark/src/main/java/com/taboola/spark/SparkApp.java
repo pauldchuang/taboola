@@ -1,5 +1,7 @@
 package com.taboola.spark;
 
+import java.io.InputStream;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.spark.sql.functions;
@@ -11,7 +13,6 @@ import org.apache.spark.sql.streaming.Trigger;
 import org.apache.spark.sql.types.DataTypes;
 
 public class SparkApp {
-
     public static void main(String[] args) throws StreamingQueryException {
         SparkSession spark = SparkSession.builder().master("local[4]").getOrCreate();
 
@@ -34,6 +35,56 @@ public class SparkApp {
                 .trigger(Trigger.ProcessingTime(10, TimeUnit.SECONDS))
                 .start();
 
+        // Add watermark and aggregation
+        Dataset<Row> aggregatedEvents = events
+                .withWatermark("timestamp", "1 minute") // Add watermark to handle late data
+                .groupBy(
+                        functions.window(functions.col("timestamp"), "1 minute"), // Group by 1-minute window
+                        functions.col("eventId")
+                )
+                .agg(functions.count("*").alias("count")) // Count the events for each (time bucket, eventId)
+                .select(
+                        functions.date_format(functions.col("window.start"), "yyyyMMddHHmm").alias("time_bucket"),
+                        functions.col("eventId").alias("event_id"),
+                        functions.col("count")
+                );
+
+        Properties properties = new Properties();
+        try (InputStream input = SparkApp.class.getClassLoader().getResourceAsStream("application.properties")) {
+            if (input == null) {
+                System.out.println("Sorry, unable to find application.properties");
+                return;
+            }
+            properties.load(input);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
+        String dbUrl = properties.getProperty("db.url");
+        String dbTable = properties.getProperty("db.table");
+        String dbUser = properties.getProperty("db.user");
+        String dbPassword = properties.getProperty("db.password");
+        String dbDriver = properties.getProperty("db.driver");
+        
+        // Write to database
+        aggregatedEvents
+            .writeStream()
+            .foreachBatch((batchDF, batchId) -> {
+                batchDF.write()
+                        .format("jdbc")
+                        .option("url", dbUrl)
+                        .option("dbtable", dbTable)
+                        .option("user", dbUser)
+                        .option("password", dbPassword)
+                        .option("driver", dbDriver)
+                        .mode("append") 
+                        .save();
+            })
+            .outputMode("update")
+            .trigger(Trigger.ProcessingTime(10, TimeUnit.SECONDS))
+            .start();
+
         // the stream will run forever
         spark.streams().awaitAnyTermination();
     }
@@ -47,5 +98,4 @@ public class SparkApp {
                 .withColumn("eventId", functions.rand(System.currentTimeMillis()).multiply(functions.lit(100)).cast(DataTypes.LongType))
                 .select("eventId", "timestamp");
     }
-
 }
